@@ -10,16 +10,16 @@ class Program
 {
     static void Main(string[] args) // Empezar el codigo principal
     {
-        if (args.Length < 2) // Revisar que se recibieron dos argumentos
+        if (args.Length < 3) // Revisar que se recibieron dos argumentos
         {
             //Console.WriteLine("Usage: dotnet run <ExcelFile1> <OutputFile>");
-            Console.WriteLine("Usage: dotnet run <RawDataFile> <OutputFile>");
+            Console.WriteLine("Usage: dotnet run <FilterValue> <RawDataFile> <OutputFile>");
             return;
         }
-
-        string RawDataPath = args[0]; // Raw data file
+        string FilterValue = args[0];
+        string RawDataPath = args[1]; // Raw data file
         //string file2Path = args[1];
-        string TargetDataPath = args[1]; //Target file
+        string TargetDataPath = args[2]; //Target file
 
         if (!File.Exists(TargetDataPath)) //Checar que el documento exista 
         {
@@ -30,12 +30,8 @@ class Program
         try
         {
             // Load the first Excel file
-            using var workbook1 = new XLWorkbook(RawDataPath);
-            var worksheet1 = workbook1.Worksheet(1);
-
-
-
-
+            using var RawDataWorkbook = new XLWorkbook(RawDataPath);
+            var RawDataWorksheet = RawDataWorkbook.Worksheet("Part1");
 
             // Load the second Excel file
             //using var workbook2 = new XLWorkbook(file2Path);
@@ -50,29 +46,20 @@ class Program
                 //select worksheet
                 var worksheet = outputworkbook.Worksheet("Export");
 
-                var firstEmptyRow = worksheet.LastRowUsed().RowNumber() + 1; 
-
+                var firstEmptyRow = worksheet.LastRowUsed().RowNumber() + 1; //Variable to select the last used row and sum 1
 
                 //Add data
                 //worksheet.Cell(firstEmptyRow, 5).Value = "New Data 1";
                 //worksheet.Cell(firstEmptyRow, 2).Value = "New Data 2";
                 //worksheet.Cell(firstEmptyRow, 3).Value = DateTime.Now;
 
-
-                CopyRows()
-
-
-
-
+                CopyRows(RawDataWorksheet, worksheet, firstEmptyRow); // Start on second row cause the first one has the column names
 
                 //Save data
                 outputworkbook.Save();
                 Console.WriteLine($"Data added succesfully");
 
             }
-
-
-
                 // Copy rows from the first worksheet
                 // var lastRow = CopyRows(worksheet1, outputWorksheet, 2); // Copiar las filas del worksheet1 en la primera fila
 
@@ -92,9 +79,9 @@ class Program
 
     static int CopyRows(IXLWorksheet RawData, IXLWorksheet TargetData, int startRow) //Funcion para copiar filas
     {
-        int currentRow = startRow;
+        int currentRow = startRow; // Row to start writing data in target file
 
-        foreach (var row in RawData.RowsUsed())  // For de filas usadas, el resto no (seleccionar fila) (Filas del RawData file)
+        foreach (var row in RawData.RowsUsed().Skip(1))  // Skip the first row of the raw data files 
         { 
             foreach (var cell in row.CellsUsed()) // For de celdas usadas, el resto no (seleccionar columna) (ir en cada celda de cada fila del RawData file) 
             {
@@ -105,6 +92,29 @@ class Program
 
         return currentRow - 1; //Regresar la ultima fila para poder seguir copiando en la siguente fila
        
+    }
+
+
+    static int GetColumnNumber(IXLWorksheet worksheet, string columnName)
+    {
+        // Find the column number based on the header row
+        var headerRow = worksheet.Row(1);
+        foreach (var cell in headerRow.CellsUsed())
+        {
+            if (cell.GetValue<string>().Equals(columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return cell.Address.ColumnNumber;
+            }
+        }
+        return -1; // Column not found
+    }
+
+    static void CopyRow(IXLRow sourceRow, IXLRow targetRow)
+    {
+        foreach (var cell in sourceRow.CellsUsed())
+        {
+            targetRow.Cell(cell.Address.ColumnNumber).Value = cell.Value;
+        }
     }
 
 
