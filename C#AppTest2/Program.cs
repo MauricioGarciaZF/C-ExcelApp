@@ -5,6 +5,7 @@
 using ClosedXML.Excel;
 using System;
 using System.IO;
+using System.Transactions;
 
 class Program
 {
@@ -18,7 +19,6 @@ class Program
         }
         string FilterValue = args[0];
         string RawDataPath = args[1]; // Raw data file
-        //string file2Path = args[1];
         string TargetDataPath = args[2]; //Target file
 
         if (!File.Exists(TargetDataPath)){ //Checar que el documento exista 
@@ -42,29 +42,16 @@ class Program
                 //select worksheet
                 var TargetWorksheet = outputworkbook.Worksheet("Export");
 
-                var firstEmptyRow = TargetWorksheet.LastRowUsed().RowNumber() + 1; //Variable to select the last used row and sum 1
-
                 //Erase first part of data in the TargetWorkSheet
-                EraseAllRowsExceptFirstInRange(outputworkbook); 
+                EraseAllRowsExceptFirstInRange(outputworkbook); //Erase both ranges from data and formulas
 
-
-
-
-                // foreach (var row in RawDataWorksheet.RowsUsed()){ // Usar cada fila del source
-                    
+                //var firstEmptyRow = TargetWorksheet.LastRowUsed().RowNumber() +1; //Variable to select the last used row and sum 1
                 
-                //     var cellValue = row.Cell(FilterColumnNumber).GetValue<string>(); // get the column filter value
-                    
-                //     if (cellValue == FilterValue){ // Check that it meets filter
-                            
-                             
-                //             CopyRow(row, TargetWorksheet.Row(firstEmptyRow)); // Copy row from source to target next row
-                //             firstEmptyRow++;// Increase 
-                //         }
-                // }
-
-
-
+                var firstEmptyRow = 2;
+                CopyDataRows(outputworkbook,RawDataWorkbook,firstEmptyRow,FilterValue,FilterColumnNumber);
+                
+                //ExtendFormulasInRange(outputworkbook);
+            
                 //Save data
                 outputworkbook.Save();
                 Console.WriteLine($"Data added succesfully");
@@ -81,11 +68,79 @@ class Program
 
                 //Console.WriteLine($"Rows from both files have been joined and saved to {TargetDataPath}");
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex){
             Console.WriteLine($"An error occurred: {ex.Message}");
         }
     }
+
+    public static void ExtendOneFormulaInRange(XLWorkbook TargetWorkbook){
+
+        var worksheet =  TargetWorkbook.Worksheet("Export");
+
+        // Get the last used row in the worksheet
+        var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 0;
+
+
+        // Statement and then increase the current row 
+        "=IF("+ CurrentRow +"\"<>\"\",\"Satisfied\",\"No Satisfy Link\")";
+
+        
+
+        // If there are rows beyond row 3, extend the formulas
+        if (lastRow > 2){
+            // Loop through each column in the range EE to EP
+            for (int col = worksheet.Column("EE").ColumnNumber(); col <= worksheet.Column("EP").ColumnNumber(); col++){
+                // Get the formula in the cell EE3 to EP3
+                var formulaCell = worksheet.Cell(2, col);
+                if (formulaCell.HasFormula){
+                    var formula = formulaCell.FormulaA1;
+
+                    // Apply the formula to all rows from row 4 to the last row
+                    for (int row = 3; row <= lastRow; row++){
+                        worksheet.Cell(row, col).FormulaA1 = formula;
+                    }
+                }
+            }
+        }
+    
+        // Save the changes back to the file
+        TargetWorkbook.Save();
+    
+    }
+
+    public static void ExtendFormulasInRange(XLWorkbook TargetWorkbook){
+
+        var worksheet =  TargetWorkbook.Worksheet("Export");
+
+        // Get the last used row in the worksheet
+        var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 0;
+
+        // If there are rows beyond row 3, extend the formulas
+        if (lastRow > 2){
+            // Loop through each column in the range EE to EP
+            for (int col = worksheet.Column("EE").ColumnNumber(); col <= worksheet.Column("EP").ColumnNumber(); col++){
+                // Get the formula in the cell EE3 to EP3
+                var formulaCell = worksheet.Cell(2, col);
+                if (formulaCell.HasFormula){
+                    var formula = formulaCell.FormulaA1;
+
+                    // Apply the formula to all rows from row 4 to the last row
+                    for (int row = 3; row <= lastRow; row++){
+                        worksheet.Cell(row, col).FormulaA1 = formula;
+                    }
+                }
+            }
+        }
+    
+        // Save the changes back to the file
+        TargetWorkbook.Save();
+    
+    }
+
+
+
+
+
 
     static int CopyRows(IXLWorksheet RawData, IXLWorksheet TargetData, int startRow) //Funcion para copiar filas
     {
@@ -127,91 +182,49 @@ class Program
         }
     }
 
-    public static void EraseAllRowsExceptFirst(string filePath)
-    {
-        // Check if the file exists
-        if (!File.Exists(filePath))
-        {
-            throw new FileNotFoundException("The specified file does not exist.", filePath);
-        }
-
-        // Open the Excel file
-        using (var workbook = new XLWorkbook(filePath))
-        {
-            // Loop through all worksheets in the workbook
-            foreach (var worksheet in workbook.Worksheets){
-                // Get the total number of rows
-                var totalRows = worksheet.RowsUsed().Count();
-
-                // Delete all rows except the first one
-                if (totalRows > 1){
-                    worksheet.Rows(2, totalRows).Delete(); // Inital row and final row to delete
-                }
-            }
-
-            // Save the changes back to the file
-            workbook.Save();
-        }
-    }
-
-    public static void ExtendFormulas(string filePath, int[] columnNumbers, int targetRowNumber)
-    {
-        // Open the Excel file
-        using (var workbook = new XLWorkbook(filePath))
-        {
-            // Loop through all worksheets in the workbook
-            foreach (var worksheet in workbook.Worksheets)
-            {
-                foreach (var columnNumber in columnNumbers){
-                    // Get the first row with a formula in the specified column
-                    //Get the first cell in the column specified with a formula
-                    var firstFormulaCell = worksheet.Column(columnNumber)
-                                                    .CellsUsed(c => c.HasFormula)
-                                                    .FirstOrDefault();
-
-                    if (firstFormulaCell != null)
-                    {
-                        // Get the formula from the first formula cell
-                        var formula = firstFormulaCell.FormulaA1; // Get the formula from the cell 
-
-                        // Extend the formula to the target row number
-                        // For loop till specified row (Select the next row in first instance)
-                        for (int row = firstFormulaCell.Address.RowNumber + 1; row <= targetRowNumber; row++){ 
-                            
-                            // Seleccionar the next row formula and give it the same formula
-                            worksheet.Cell(row, columnNumber).FormulaA1 = formula; 
-                        }
-                    }
-                }
-            }
-
-            // Save the changes back to the file
-            workbook.Save();
-
-            /*
-            knlknlkn
-            */
-
-        }
-    }
-
     public static void EraseAllRowsExceptFirstInRange(XLWorkbook TargetWorkbook) //Funcion para borrar todas las filas excepto la primera
     {
         // Open the Excel file
         // Select the export worksheet
-        var worksheet =  workbook.Worksheet("Export");
+        var worksheet =  TargetWorkbook.Worksheet("Export");
 
         // Define the range from column A to column ED
         // Select a range (rectangle) in the excel 
-        var range = worksheet.Range("A2:ED" + 2);
+        var rangeA = worksheet.Range("A2:ED" + worksheet.LastRowUsed().RowNumber()); // Define range A2 untill ED{last row}
+
+        var rangeB = worksheet.Range("EE3:EP" + worksheet.LastRowUsed().RowNumber());
 
         // Clear the content of the range
-        range.Clear(XLClearOptions.Contents);
+        rangeA.Clear(XLClearOptions.Contents);
+        rangeB.Clear(XLClearOptions.Contents);
         
+        // Save the changes back to the file
+        TargetWorkbook.Save();
+    }
+
+    public static void CopyDataRows(XLWorkbook TargetWorkbook, XLWorkbook RawDataWorkbook, int firstEmptyRow, string FilterValue, int FilterColumnNumber ) 
+    {
+        //Funcion para borrar todas las filas excepto la primera
+        // Open the Excel file
+        // Select the export worksheet
+        var TargetWorksheet =  TargetWorkbook.Worksheet("Export");
+
+        var RawDataWorksheet = RawDataWorkbook.Worksheet("Part1");
+
+        
+        foreach (var row in RawDataWorksheet.RowsUsed()){ // Usar cada fila del source
+
+            var cellValue = row.Cell(FilterColumnNumber).GetValue<string>(); // get the column filter value
+            
+            if (cellValue == FilterValue){ // Check that it meets filter
+                    
+                    CopyRow(row, TargetWorksheet.Row(firstEmptyRow)); // Copy row from source to target next row
+                    firstEmptyRow++;// Increase 
+                }
+        }
 
         // Save the changes back to the file
         TargetWorkbook.Save();
-        
     }
 
 
