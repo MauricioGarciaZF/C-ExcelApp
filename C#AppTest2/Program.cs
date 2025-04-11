@@ -51,6 +51,15 @@ class Program
                 CopyDataRows(outputworkbook,RawDataWorkbook,firstEmptyRow,FilterValue,FilterColumnNumber);
                 
                 //ExtendFormulasInRange(outputworkbook);
+
+                ExtendOneFormulaInRange(outputworkbook);
+
+                //int columntest = TargetWorksheet.Column("EH").ColumnNumber();
+
+                //TargetWorksheet.Cell(3, columntest).FormulaA1 = "=\"EA"+"3"+"\"" ;
+
+                //TargetWorksheet.Cell(3, columntest).FormulaA1 = "=IF(EA"+3+"<>\"\",\"Satisfied\",\"No Satisfy Link\")" ;  
+
             
                 //Save data
                 outputworkbook.Save();
@@ -82,26 +91,36 @@ class Program
 
 
         // Statement and then increase the current row 
-        "=IF("+ CurrentRow +"\"<>\"\",\"Satisfied\",\"No Satisfy Link\")";
+        //"=IF("+ CurrentRow +"\"<>\"\",\"Satisfied\",\"No Satisfy Link\")";
 
+        /*
+        =IF(EA2<>"","Satisfied","No Satisfy Link") E
+        =IF(ISERROR(VLOOKUP(K2,Exclusion!A:A,1,FALSE)),H"VALID","INVALID") EI
+        =IF(ISERROR(VLOOKUP(K2,Export_S002_210624!S:S,1,FALSE)),"YES",IF(AND(VLOOKUP(K2,Export_S002_210624!S:BN,29,FALSE)="",VLOOKUP(K2,Export_S002_210624!S:BN,6,FALSE)<>"Pass"),"NO","YES")) EJ
+        =IF(AR2<>"",VLOOKUP(AR2,SwBehav2Team!A:C,2,FALSE),"No SW Behavior assigned") EK
+        =IF(AR2<>"",VLOOKUP(AR2,SwBehav2Team!A:C,3,FALSE),"No SW Behavior assigned") EL
+
+        =IF(ISERROR(VLOOKUP(K2,Export_S002_210624!S:S,1,FALSE)),"YES","NO") EN
+        =IF(VLOOKUP(K2,Export_S002_210624!S:BN,29,FALSE)="","EMPTY","LINKED") EO
+        =VLOOKUP(K2,Export_S002_210624!S:BN,6,FALSE) EP
+
+        */
         
 
-        // If there are rows beyond row 3, extend the formulas
-        if (lastRow > 2){
-            // Loop through each column in the range EE to EP
-            for (int col = worksheet.Column("EE").ColumnNumber(); col <= worksheet.Column("EP").ColumnNumber(); col++){
-                // Get the formula in the cell EE3 to EP3
-                var formulaCell = worksheet.Cell(2, col);
-                if (formulaCell.HasFormula){
-                    var formula = formulaCell.FormulaA1;
+        // Apply the formula to all rows from row 4 to the last row
+        for (int row = 2; row <= lastRow; row++){
+            worksheet.Cell(row, worksheet.Column("EH").ColumnNumber()).FormulaA1 = "=IF(EA"+row+"<>\"\",\"Satisfied\",\"No Satisfy Link\")";
+            worksheet.Cell(row, worksheet.Column("EI").ColumnNumber()).FormulaA1 = "=IF(ISERROR(VLOOKUP(K"+row+",Exclusion!A:A,1,FALSE)),\"VALID\",\"INVALID\")" ; 
+            worksheet.Cell(row, worksheet.Column("EJ").ColumnNumber()).FormulaA1 = "=IF(ISERROR(VLOOKUP(K"+row+",Export_S002_210624!S:S,1,FALSE)),\"YES\",IF(AND(VLOOKUP(K"+row+",Export_S002_210624!S:BN,29,FALSE)=\"\",VLOOKUP(K"+row+",Export_S002_210624!S:BN,6,FALSE)<>\"Pass\"),\"NO\",\"YES\"))";
+            worksheet.Cell(row, worksheet.Column("EK").ColumnNumber()).FormulaA1 = "=IF(AR"+row+"<>\"\",VLOOKUP(AR"+row+",SwBehav2Team!A:C,2,FALSE),\"No SW Behavior assigned\")";
+            worksheet.Cell(row, worksheet.Column("EL").ColumnNumber()).FormulaA1 = "=IF(AR"+row+"<>\"\",VLOOKUP(AR"+row+",SwBehav2Team!A:C,3,FALSE),\"No SW Behavior assigned\")";
 
-                    // Apply the formula to all rows from row 4 to the last row
-                    for (int row = 3; row <= lastRow; row++){
-                        worksheet.Cell(row, col).FormulaA1 = formula;
-                    }
-                }
-            }
+            worksheet.Cell(row, worksheet.Column("EN").ColumnNumber()).FormulaA1 = "=IF(ISERROR(VLOOKUP(K"+row+",Export_S002_210624!S:S,1,FALSE)),\"YES\",\"NO\")";
+            worksheet.Cell(row, worksheet.Column("EO").ColumnNumber()).FormulaA1 = "=IF(VLOOKUP(K"+row+",Export_S002_210624!S:BN,29,FALSE)=\"\",\"EMPTY\",\"LINKED\")" ;
+            worksheet.Cell(row, worksheet.Column("EP").ColumnNumber()).FormulaA1 = "=VLOOKUP(K"+row+",Export_S002_210624!S:BN,6,FALSE)";
         }
+
+        
     
         // Save the changes back to the file
         TargetWorkbook.Save();
@@ -192,7 +211,7 @@ class Program
         // Select a range (rectangle) in the excel 
         var rangeA = worksheet.Range("A2:ED" + worksheet.LastRowUsed().RowNumber()); // Define range A2 untill ED{last row}
 
-        var rangeB = worksheet.Range("EE3:EP" + worksheet.LastRowUsed().RowNumber());
+        var rangeB = worksheet.Range("EE2:EP" + worksheet.LastRowUsed().RowNumber()); // Select untill the last row used in the doc
 
         // Clear the content of the range
         rangeA.Clear(XLClearOptions.Contents);
